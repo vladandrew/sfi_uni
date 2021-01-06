@@ -129,13 +129,14 @@ static void main_thread_func(void *arg)
 
 	uk_pr_info("Constructor table at %p - %p\n",
 		   &__init_array_start[0], &__init_array_end);
+	/*
 	uk_ctortab_foreach(ctorfn, __init_array_start, __init_array_end) {
 		if (!*ctorfn)
 			continue;
 
 		uk_pr_debug("Call constructor: %p()...\n", *ctorfn);
 		(*ctorfn)();
-	}
+	}*/
 
 	uk_pr_info("Calling main(%d, [", tma->argc);
 	for (i = 0; i < tma->argc; ++i) {

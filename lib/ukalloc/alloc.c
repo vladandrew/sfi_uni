@@ -125,6 +125,13 @@ static size_t uk_getmallocsize(const void *ptr)
 	       __PAGE_SIZE - (size_t)ptr;
 }
 
+#define KASAN_KMALLOC_REDZONE_SIZE 8
+#define KASAN_CODE_KMALLOC_OVERFLOW 0xFE
+#define roundup(x, y) ((((x) + ((y)-1)) / (y)) * (y))
+typedef unsigned long word_t;
+#define ALLIGNMENT (4 * sizeof(word_t))
+#define KASAN_CODE_KMALLOC_FREED 0xFF
+
 void *uk_malloc_ifpages(struct uk_alloc *a, size_t size)
 {
 	uintptr_t intptr;
@@ -137,6 +144,8 @@ void *uk_malloc_ifpages(struct uk_alloc *a, size_t size)
 	if (!size || realsize < size)
 		return NULL;
 
+	size_t req_size = roundup(realsize + KASAN_KMALLOC_REDZONE_SIZE, ALLIGNMENT);
+
 	num_pages = size_to_num_pages(realsize);
 	intptr = (uintptr_t)uk_palloc(a, num_pages);
 
@@ -146,7 +155,10 @@ void *uk_malloc_ifpages(struct uk_alloc *a, size_t size)
 	metadata = (struct metadata_ifpages *) intptr;
 	metadata->num_pages = num_pages;
 	metadata->base = (void *) intptr;
-
+#ifdef CONFIG_LIBKASAN
+	size_t rsize = metadata->num_pages * 4096 + sizeof(*metadata);
+	kasan_mark_valid(intptr, rsize);//, KASAN_CODE_KMALLOC_OVERFLOW);
+#endif
 	return (void *)(intptr + sizeof(*metadata));
 }
 
@@ -162,7 +174,14 @@ void uk_free_ifpages(struct uk_alloc *a, void *ptr)
 
 	UK_ASSERT(metadata->base != NULL);
 	UK_ASSERT(metadata->num_pages != 0);
+	
+#ifdef CONFIG_LIBKASAN
+	size_t t = metadata->num_pages * 4096 + sizeof(*metadata);
+	kasan_mark_invalid(metadata->base, t, KASAN_CODE_KMALLOC_FREED);
+#endif
+
 	uk_pfree(a, metadata->base, metadata->num_pages);
+
 }
 
 void *uk_realloc_ifpages(struct uk_alloc *a, void *ptr, size_t size)

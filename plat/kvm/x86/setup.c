@@ -105,8 +105,8 @@ static inline void _mb_init_mem(struct multiboot_info *mi)
 	 */
 	if ((max_addr - m->addr) < __STACK_SIZE)
 		UK_CRASH("Not enough memory to allocate boot stack\n");
-
-	_libkvmplat_cfg.heap.start = ALIGN_UP((uintptr_t) __END, __PAGE_SIZE);
+	uintptr_t heapp = (uintptr_t)__END + (1 << 24);
+	_libkvmplat_cfg.heap.start = ALIGN_UP(heapp, __PAGE_SIZE);
 	_libkvmplat_cfg.heap.end   = (uintptr_t) max_addr - __STACK_SIZE;
 	_libkvmplat_cfg.heap.len   = _libkvmplat_cfg.heap.end
 				     - _libkvmplat_cfg.heap.start;
